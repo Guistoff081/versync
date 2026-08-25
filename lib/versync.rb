@@ -9,6 +9,7 @@ require_relative "versync/facts_collector"
 require_relative "versync/git_info"
 require_relative "versync/renderers/json"
 require_relative "versync/renderers/markdown"
+require_relative "versync/diff_checker"
 
 module Versync
 end
