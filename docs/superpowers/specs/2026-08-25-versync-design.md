@@ -25,14 +25,15 @@ have written down actually true right now?**
 
 ## Origin
 
-Validated internally at GuardCenter/SGC via `bin/doc-versions` /
-`docs/versions.md`, which already extracts facts from `.ruby-version`,
-`Gemfile`/`Gemfile.lock`, and `config/application.rb`, and produces a
-human-readable and JSON representation for humans and agents. versync
-generalizes the *concept* into a standalone, framework-agnostic Ruby
-gem — no code or configuration specific to GuardCenter's private
-repositories is reused; only the general architecture and problem
-framing carry over.
+This pain shows up repeatedly in real-world Rails codebases — especially
+larger, longer-lived ones — where documentation of the runtime
+environment (Ruby, Rails, service versions) quietly drifts from reality
+over time, and both human contributors and AI coding agents end up
+working from an inaccurate mental model as a result. A small internal
+script following this same pattern (extract facts from `.ruby-version`,
+`Gemfile`/`Gemfile.lock`, and similar sources; produce a human-readable
+and JSON representation) validated the approach before this project
+generalized it into a standalone, framework-agnostic Ruby gem.
 
 ## Goals (v0.1 / MVP)
 
@@ -235,17 +236,6 @@ Name availability confirmed on RubyGems (`versync` unclaimed as of
 2026-08-25). The unrelated `versync` npm package (JS ecosystem) does
 not conflict.
 
-## Legal / IP note
-
-The *concept* originates from work done on GuardCenter/SGC's internal
-`bin/doc-versions` tooling. Implementation for this OSS project is
-written independently, with generic adapters and no GuardCenter-specific
-code, configuration, service names, or business logic. The author's
-stated position: work created outside of GuardCenter/SGC is their own to
-use as they choose, provided it isn't used to compete with GuardCenter —
-versync (a generic dev-tooling utility, not in GuardCenter's product
-space) does not raise that concern.
-
 ## Roadmap (post-v0.1, not part of this spec's implementation scope)
 
 - **v0.2 — Inline markers in free-text docs.** Opt-in markers like
@@ -277,7 +267,5 @@ space) does not raise that concern.
 This spec is part of a broader portfolio evaluation of four project
 ideas (versync, Rails Quality Engine, Kamal Serverless, SpecEditUI).
 versync was chosen to ship first: smallest scope, fastest to a real
-release, lowest IP exposure, and immediately useful in the author's
-own AI-agent-assisted workflow. See
-`/home/guigo/Work/projects/personal/rails-quality-chatgpt-conversa.md`
-for the original comparative analysis of all four ideas.
+release, and immediately useful in the author's own AI-agent-assisted
+workflow.
