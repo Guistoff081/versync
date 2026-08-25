@@ -5,6 +5,7 @@ require_relative "versync/adapters/ruby_version"
 require_relative "versync/adapters/bundler"
 require_relative "versync/adapters/docker_compose"
 require_relative "versync/configuration"
+require_relative "versync/facts_collector"
 
 module Versync
 end
