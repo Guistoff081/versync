@@ -1,0 +1,13 @@
+output:
+  markdown: VERSIONS.md
+  json: versync.json
+
+facts:
+  ruby:
+    adapter: ruby_version
+  rails:
+    adapter: bundler
+    gem: rails
+  postgres:
+    adapter: docker_compose
+    service: db
