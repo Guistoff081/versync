@@ -33,6 +33,7 @@
 - **CLI error handling is command-specific, not one blanket rescue.** A single `rescue Errno::ENOENT` wrapping an entire command body would mis-attribute *any* `ENOENT` (e.g. from a broken symlink an adapter tries to read) to ".versync.yml not found". Each command explicitly checks `File.exist?(config_path)` up front, and rescues the specific `Configuration::InvalidError` / `FactsCollector::UnknownAdapterError` that can legitimately occur.
 - **Malformed `.versync.yml` fails clearly.** A `facts:` entry with a `nil` body or no `adapter:` key would otherwise raise a confusing `NoMethodError`/`KeyError` deep in `Configuration`. It raises `Configuration::InvalidError` naming the offending fact instead.
 - **Empty facts list renders cleanly.** Zero facts would otherwise produce a Markdown table with an empty body line. The renderer prints `_No facts available._` instead of an empty table when there are no facts.
+- **Test class namespacing.** `class Adapters::FooTest < Minitest::Test` (compact form) requires the `Adapters`/`Renderers` constant to already exist at the top level — it does not auto-vivify like `module Adapters; class FooTest; end; end` does. Each affected test file either opens `module Adapters ... end` around the class, or predeclares `module Adapters; end` before the compact form. Confirmed by direct testing; the compact form without either fix raises `NameError: uninitialized constant Adapters`.
 - **Fixture copying must handle dotfiles.** `Dir.glob("#{path}/*")` does **not** match dotfiles (`.ruby-version`, `.versync.yml`) by default in Ruby — confirmed by direct testing. `test_helper.rb`'s `copy_fixture` must pass `File::FNM_DOTMATCH` and filter out the `.`/`..` entries it then includes, or most fixtures silently fail to copy their most important file.
 - **Facts are ordered by config, not by registry or alphabetically.** `FactsCollector#collect` iterates `fact_configs` in the order `Configuration` parsed them from `.versync.yml` (Ruby `Hash` preserves insertion order from YAML), and that order flows unchanged into both renderers.
 
@@ -274,21 +275,27 @@ end
 ```ruby
 require "test_helper"
 
-class Adapters::BaseTest < Minitest::Test
-  def setup
-    @adapter = Versync::Adapters::Base.new
-  end
+# NOTE: `Adapters` here must be opened with `module ... end`, not the
+# compact `class Adapters::BaseTest` form — the compact form requires
+# the `Adapters` constant to already exist, which it doesn't at the
+# top level (only inside `Versync::Adapters`).
+module Adapters
+  class BaseTest < Minitest::Test
+    def setup
+      @adapter = Versync::Adapters::Base.new
+    end
 
-  def test_name_raises
-    assert_raises(NotImplementedError) { @adapter.name }
-  end
+    def test_name_raises
+      assert_raises(NotImplementedError) { @adapter.name }
+    end
 
-  def test_available_raises
-    assert_raises(NotImplementedError) { @adapter.available?("/some/root") }
-  end
+    def test_available_raises
+      assert_raises(NotImplementedError) { @adapter.available?("/some/root") }
+    end
 
-  def test_extract_raises
-    assert_raises(NotImplementedError) { @adapter.extract("/some/root", {}) }
+    def test_extract_raises
+      assert_raises(NotImplementedError) { @adapter.extract("/some/root", {}) }
+    end
   end
 end
 ```
@@ -370,6 +377,8 @@ git commit -m "Add Fact value object and Adapters::Base interface"
 `test/adapters/ruby_version_test.rb`:
 ```ruby
 require "test_helper"
+
+module Adapters; end # see note in test/adapters/base_test.rb about this compact-form requirement
 
 class Adapters::RubyVersionTest < Minitest::Test
   def setup
@@ -487,6 +496,8 @@ BUNDLED WITH
 `test/adapters/bundler_test.rb`:
 ```ruby
 require "test_helper"
+
+module Adapters; end # see note in test/adapters/base_test.rb about this compact-form requirement
 
 class Adapters::BundlerTest < Minitest::Test
   def setup
@@ -638,6 +649,8 @@ services:
 `test/adapters/docker_compose_test.rb`:
 ```ruby
 require "test_helper"
+
+module Adapters; end # see note in test/adapters/base_test.rb about this compact-form requirement
 
 class Adapters::DockerComposeTest < Minitest::Test
   def setup
@@ -1190,6 +1203,8 @@ require "test_helper"
 require "json"
 require "time"
 
+module Renderers; end # see note in test/adapters/base_test.rb about this compact-form requirement
+
 class Renderers::JsonTest < Minitest::Test
   def test_renders_facts_generated_at_and_commit
     facts = [Versync::Fact.new(name: "ruby", value: "4.0.6", source: ".ruby-version")]
@@ -1274,6 +1289,8 @@ git commit -m "Add JSON renderer"
 ```ruby
 require "test_helper"
 require "time"
+
+module Renderers; end # see note in test/adapters/base_test.rb about this compact-form requirement
 
 class Renderers::MarkdownTest < Minitest::Test
   def test_renders_a_facts_table_with_header_and_footer
