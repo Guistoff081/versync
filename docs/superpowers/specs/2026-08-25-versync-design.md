@@ -88,6 +88,24 @@ service with no tag (`image: postgres`, implying `latest`) or no
 `image:` key (`build:`-only service) is reported as unavailable for
 that fact rather than guessed.
 
+The adapter looks for a compose file under the project root, trying
+these names in order and using the first one found: `compose.yaml`,
+`compose.yml`, `docker-compose.yaml`, `docker-compose.yml` (matching
+the Compose Spec's own precedence, since newer tooling favors
+`compose.yaml`). The fact's reported `source` names whichever file was
+actually found, e.g. `compose.yaml (db)`.
+
+### Unavailable facts
+
+A fact whose adapter cannot extract a value (file missing, service
+absent, no tag, unknown gem) is **not** guessed and is **not** silently
+dropped: it is omitted from `VERSIONS.md`/`versync.json` for that run,
+and `versync facts`/`versync sync` print a one-line warning per skipped
+fact to stderr (e.g. `warning: fact 'redis' unavailable — service
+'redis' not found in compose.yaml`). This does not change the command's
+exit code — an unavailable fact is a normal, expected outcome (e.g. a
+project without Redis configured), not a failure.
+
 ### Configuration
 
 A project opts in to which facts it wants tracked via `.versync.yml`:
@@ -176,9 +194,31 @@ versync check    # exit non-zero if `sync` would change anything — for CI
 ```
 
 `check` implementation: run the same pipeline as `sync` in memory,
-compare the freshly rendered output against what's currently on disk,
-report a diff, exit non-zero on mismatch. No parsing of unrelated
-documentation files.
+compare the freshly collected facts and the freshly rendered
+`VERSIONS.md` body against what's currently on disk, report a diff,
+exit non-zero on mismatch. No parsing of unrelated documentation
+files.
+
+`check` reports stale (exit 1) when any of the following is true:
+- `versync.json` does not exist yet.
+- A fact's value or source in `versync.json` differs from what a fresh
+  collection produces.
+- `VERSIONS.md` does not exist, or its table differs from a fresh
+  render (the `_Last synced: ..._` footer line is excluded from this
+  comparison — see "Design Decisions Not Explicit In The Spec" in the
+  implementation plan for why).
+
+| Command | Exit 0 | Exit 1 |
+|---|---|---|
+| `init` | `.versync.yml` written | `.versync.yml` already exists |
+| `facts` | facts printed (0 or more; unavailable facts warn but don't fail) | `.versync.yml` missing or invalid |
+| `sync` | files written | `.versync.yml` missing or invalid |
+| `check` | nothing stale | `.versync.yml` missing/invalid, or output stale per the rules above |
+
+Facts are always collected, rendered, and compared in the order
+they're declared under `facts:` in `.versync.yml` — output order is
+deterministic and config-driven, never alphabetical or adapter-registry
+order.
 
 ## Repository structure
 
@@ -203,23 +243,32 @@ versync/
 │       │   └── json.rb
 │       ├── diff_checker.rb
 │       └── cli.rb
-├── spec/
+├── test/
 │   ├── adapters/
 │   ├── renderers/
-│   └── fixtures/                     # sample Gemfile.lock, docker-compose.yml
+│   ├── fixtures/                     # sample Gemfile.lock, compose.yaml
+│   └── test_helper.rb
+├── Rakefile
 └── versync.gemspec
 ```
 
+CI runs `bundle exec rake test` on push/PR via
+`.github/workflows/ci.yml`.
+
 ## Testing approach
 
+- **Minitest**, not RSpec: it ships in Ruby's standard library, so it
+  adds zero runtime/dev dependencies beyond what a "small,
+  dependency-light" gem (see Goals) should need, and `rake test` is
+  the conventional entry point `bundle gem` itself scaffolds.
 - Each adapter tested in isolation against real fixture files
-  (`Gemfile.lock`, `docker-compose.yml` samples) — no adapter mocks.
+  (`Gemfile.lock`, `compose.yaml` samples) — no adapter mocks.
 - `FactsCollector` tested against fake/stub adapters to verify
   orchestration logic independent of real parsing.
-- Renderers tested via snapshot comparison of generated
+- Renderers tested via direct string/JSON assertions on generated
   Markdown/JSON.
-- `DiffChecker` tested against a stale `VERSIONS.md` fixture vs. an
-  up-to-date one, verifying correct exit-code behavior.
+- `DiffChecker` tested against a stale `VERSIONS.md`/`versync.json`
+  fixture vs. an up-to-date one, verifying correct exit-code behavior.
 - Filesystem interactions use real temporary directories with
   fixtures copied in — no filesystem mocking, to catch path/encoding
   bugs early.
