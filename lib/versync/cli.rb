@@ -91,7 +91,36 @@ module Versync
     end
 
     def run_check
-      1
+      config = load_config
+      return 1 unless config
+
+      result = collect_facts(config)
+      return 1 unless result
+
+      rendered_markdown = Renderers::Markdown.new(
+        facts: result.facts, generated_at: Time.now, commit: GitInfo.current_sha(project_root)
+      ).render
+
+      diff = DiffChecker.new(
+        project_root: project_root, json_output: config.json_output, markdown_output: config.markdown_output
+      ).check(result.facts, rendered_markdown: rendered_markdown)
+
+      warn_skipped(result.skipped)
+
+      if diff.stale?
+        @stderr.puts "versync is stale — run `versync sync`:"
+        @stderr.puts "  #{config.json_output} does not exist" if diff.missing_output
+        if diff.markdown_stale && !diff.missing_output
+          @stderr.puts "  #{config.markdown_output} is missing or out of date"
+        end
+        diff.fact_diffs.each do |d|
+          @stderr.puts "  #{d[:name]}: documented=#{d[:before].inspect} actual=#{d[:after].inspect}"
+        end
+        return 1
+      end
+
+      @stdout.puts "versync is up to date"
+      0
     end
 
     def run_init

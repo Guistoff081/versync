@@ -55,6 +55,38 @@ class CLITest < Minitest::Test
     end
   end
 
+  def test_check_returns_1_when_versync_json_missing
+    with_temp_project do |dir|
+      copy_fixture("full_project", dir)
+      status, _, stderr = run_cli(["check"], dir)
+
+      assert_equal 1, status
+      assert_includes stderr, "versync is stale"
+    end
+  end
+
+  def test_check_returns_0_after_a_sync
+    with_temp_project do |dir|
+      copy_fixture("full_project", dir)
+      run_cli(["sync"], dir)
+
+      status, = run_cli(["check"], dir)
+      assert_equal 0, status
+    end
+  end
+
+  def test_check_returns_1_when_versions_md_deleted_after_sync
+    with_temp_project do |dir|
+      copy_fixture("full_project", dir)
+      run_cli(["sync"], dir)
+      File.delete(File.join(dir, "VERSIONS.md"))
+
+      status, _, stderr = run_cli(["check"], dir)
+      assert_equal 1, status
+      assert_includes stderr, "VERSIONS.md"
+    end
+  end
+
   def test_unknown_command_returns_1_and_prints_usage
     stdout = StringIO.new
     stderr = StringIO.new
