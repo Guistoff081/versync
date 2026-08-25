@@ -1,0 +1,13 @@
+services:
+  db:
+    image: postgres:18.1-alpine
+  redis:
+    image: redis:8.2
+  no_tag:
+    image: postgres
+  built:
+    build: .
+  registry_no_tag:
+    image: myregistry:5000/postgres
+  registry_tag:
+    image: myregistry:5000/postgres:18

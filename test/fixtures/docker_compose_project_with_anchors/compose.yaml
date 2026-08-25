@@ -1,0 +1,7 @@
+x-defaults: &defaults
+  restart: unless-stopped
+
+services:
+  db:
+    <<: *defaults
+    image: postgres:18.1-alpine
