@@ -1,0 +1,5 @@
+services:
+  db:
+    image: postgres:18.1-alpine
+  redis:
+    image: redis:8.2

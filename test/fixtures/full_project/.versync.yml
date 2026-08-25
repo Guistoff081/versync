@@ -1,0 +1,12 @@
+facts:
+  ruby:
+    adapter: ruby_version
+  rails:
+    adapter: bundler
+    gem: rails
+  postgres:
+    adapter: docker_compose
+    service: db
+  redis:
+    adapter: docker_compose
+    service: redis

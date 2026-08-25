@@ -1,0 +1,5 @@
+#!/usr/bin/env ruby
+
+require "versync"
+
+exit Versync::CLI.new(ARGV).run
