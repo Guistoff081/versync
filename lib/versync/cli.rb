@@ -70,7 +70,24 @@ module Versync
     end
 
     def run_sync
-      1
+      config = load_config
+      return 1 unless config
+
+      result = collect_facts(config)
+      return 1 unless result
+
+      generated_at = Time.now
+      commit = GitInfo.current_sha(project_root)
+
+      markdown = Renderers::Markdown.new(facts: result.facts, generated_at: generated_at, commit: commit).render
+      json = Renderers::Json.new(facts: result.facts, generated_at: generated_at, commit: commit).render
+
+      File.write(File.join(project_root, config.markdown_output), markdown)
+      File.write(File.join(project_root, config.json_output), json)
+
+      warn_skipped(result.skipped)
+      @stdout.puts "Synced #{result.facts.size} fact(s) to #{config.markdown_output} and #{config.json_output}"
+      0
     end
 
     def run_check

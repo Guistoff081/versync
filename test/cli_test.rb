@@ -31,6 +31,30 @@ class CLITest < Minitest::Test
     end
   end
 
+  def test_sync_writes_versions_md_and_versync_json
+    with_temp_project do |dir|
+      copy_fixture("full_project", dir)
+      status, stdout, = run_cli(["sync"], dir)
+
+      assert_equal 0, status
+      markdown = File.read(File.join(dir, "VERSIONS.md"))
+      json = JSON.parse(File.read(File.join(dir, "versync.json")))
+
+      assert_includes markdown, "| ruby | 4.0.6 | .ruby-version |"
+      assert_includes json["facts"], { "name" => "ruby", "value" => "4.0.6", "source" => ".ruby-version" }
+      assert_includes stdout, "Synced 4 fact(s)"
+    end
+  end
+
+  def test_sync_returns_1_when_versync_yml_missing
+    with_temp_project do |dir|
+      status, _, stderr = run_cli(["sync"], dir)
+
+      assert_equal 1, status
+      assert_includes stderr, ".versync.yml not found"
+    end
+  end
+
   def test_unknown_command_returns_1_and_prints_usage
     stdout = StringIO.new
     stderr = StringIO.new
