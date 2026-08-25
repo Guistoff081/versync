@@ -5,6 +5,21 @@ module Versync
   class CLI
     COMMANDS = %w[init facts sync check].freeze
 
+    PROBES = [
+      { "name" => "ruby", "check" => ->(root) { File.exist?(File.join(root, ".ruby-version")) },
+        "config" => { "adapter" => "ruby_version" } },
+      { "name" => "rails", "check" => ->(root) { File.exist?(File.join(root, "Gemfile.lock")) },
+        "config" => { "adapter" => "bundler", "gem" => "rails" } },
+      { "name" => "postgres", "check" => ->(root) { compose_file_present?(root) },
+        "config" => { "adapter" => "docker_compose", "service" => "db" } },
+      { "name" => "redis", "check" => ->(root) { compose_file_present?(root) },
+        "config" => { "adapter" => "docker_compose", "service" => "redis" } }
+    ].freeze
+
+    def self.compose_file_present?(root)
+      Adapters::DockerCompose::CANDIDATE_FILENAMES.any? { |filename| File.exist?(File.join(root, filename)) }
+    end
+
     def initialize(argv, project_root: Dir.pwd, stdout: $stdout, stderr: $stderr)
       @argv = argv
       @project_root = project_root
@@ -124,7 +139,20 @@ module Versync
     end
 
     def run_init
-      1
+      if File.exist?(config_path)
+        @stderr.puts ".versync.yml already exists"
+        return 1
+      end
+
+      facts = PROBES.each_with_object({}) do |probe, acc|
+        next unless probe["check"].call(project_root)
+
+        acc[probe["name"]] = probe["config"]
+      end
+
+      File.write(config_path, YAML.dump("facts" => facts))
+      @stdout.puts "Wrote #{config_path} with #{facts.size} detected fact(s)"
+      0
     end
   end
 end

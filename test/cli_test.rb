@@ -87,6 +87,32 @@ class CLITest < Minitest::Test
     end
   end
 
+  def test_init_writes_versync_yml_from_detected_facts
+    with_temp_project do |dir|
+      copy_fixture("full_project_without_config", dir)
+      status, = run_cli(["init"], dir)
+
+      assert_equal 0, status
+      config = YAML.safe_load(File.read(File.join(dir, ".versync.yml")))
+
+      assert_equal %w[ruby rails postgres redis].sort, config["facts"].keys.sort
+      assert_equal({ "adapter" => "bundler", "gem" => "rails" }, config["facts"]["rails"])
+    end
+  end
+
+  def test_init_does_not_overwrite_existing_versync_yml
+    with_temp_project do |dir|
+      copy_fixture("full_project", dir)
+      original = File.read(File.join(dir, ".versync.yml"))
+
+      status, _, stderr = run_cli(["init"], dir)
+
+      assert_equal 1, status
+      assert_includes stderr, "already exists"
+      assert_equal original, File.read(File.join(dir, ".versync.yml"))
+    end
+  end
+
   def test_unknown_command_returns_1_and_prints_usage
     stdout = StringIO.new
     stderr = StringIO.new
