@@ -240,14 +240,11 @@ not conflict.
 The *concept* originates from work done on GuardCenter/SGC's internal
 `bin/doc-versions` tooling. Implementation for this OSS project is
 written independently, with generic adapters and no GuardCenter-specific
-code, configuration, service names, or business logic. Before public
-release, confirm this project's development does not conflict with any
-IP-assignment or moonlighting clause in the author's employment
-agreement — this applies to some degree to all four project ideas
-evaluated (versync, Rails Quality Engine, Kamal Serverless/Fargate
-deploy tool, SpecEditUI), with versync carrying the *lowest* exposure
-of the four since the shipped code has no business logic in common with
-GuardCenter's product.
+code, configuration, service names, or business logic. The author's
+stated position: work created outside of GuardCenter/SGC is their own to
+use as they choose, provided it isn't used to compete with GuardCenter —
+versync (a generic dev-tooling utility, not in GuardCenter's product
+space) does not raise that concern.
 
 ## Roadmap (post-v0.1, not part of this spec's implementation scope)
 
