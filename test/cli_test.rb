@@ -113,6 +113,34 @@ class CLITest < Minitest::Test
     end
   end
 
+  def test_end_to_end_init_sync_check
+    with_temp_project do |dir|
+      copy_fixture("full_project_without_config", dir)
+
+      assert_equal 0, run_cli(["init"], dir).first
+      assert_equal 0, run_cli(["sync"], dir).first
+      assert_equal 0, run_cli(["check"], dir).first
+
+      markdown = File.read(File.join(dir, "VERSIONS.md"))
+      assert_includes markdown, "| rails | 8.1.3 | Gemfile.lock |"
+    end
+  end
+
+  def test_check_reports_stale_after_gemfile_lock_changes_post_sync
+    with_temp_project do |dir|
+      copy_fixture("full_project", dir)
+      run_cli(["sync"], dir)
+
+      gemfile_lock = File.join(dir, "Gemfile.lock")
+      File.write(gemfile_lock, File.read(gemfile_lock).sub("rails (8.1.3)", "rails (8.2.0)"))
+
+      status, _, stderr = run_cli(["check"], dir)
+
+      assert_equal 1, status
+      assert_includes stderr, 'rails: documented="8.1.3" actual="8.2.0"'
+    end
+  end
+
   def test_unknown_command_returns_1_and_prints_usage
     stdout = StringIO.new
     stderr = StringIO.new
