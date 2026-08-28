@@ -126,6 +126,62 @@ class CLITest < Minitest::Test
     end
   end
 
+  def test_sync_refuses_output_path_that_escapes_project_root
+    with_temp_project do |dir|
+      copy_fixture("full_project", dir)
+      config = File.join(dir, ".versync.yml")
+      File.write(config, YAML.load_file(config).merge("output" => { "markdown" => "../evil.md" }).to_yaml)
+
+      status, _, stderr = run_cli(["sync"], dir)
+
+      assert_equal 1, status
+      assert_includes stderr, "escapes the project root"
+      refute File.exist?(File.join(dir, "..", "evil.md"))
+    end
+  end
+
+  def test_sync_refuses_identical_markdown_and_json_output_paths
+    with_temp_project do |dir|
+      copy_fixture("full_project", dir)
+      config = File.join(dir, ".versync.yml")
+      File.write(config, YAML.load_file(config).merge("output" => { "markdown" => "out.txt", "json" => "out.txt" }).to_yaml)
+
+      status, _, stderr = run_cli(["sync"], dir)
+
+      assert_equal 1, status
+      assert_includes stderr, "resolve to the same path"
+    end
+  end
+
+  def test_sync_refuses_output_path_targeting_a_fact_source
+    with_temp_project do |dir|
+      copy_fixture("full_project", dir)
+      config = File.join(dir, ".versync.yml")
+      File.write(config, YAML.load_file(config).merge("output" => { "markdown" => "Gemfile.lock" }).to_yaml)
+
+      status, _, stderr = run_cli(["sync"], dir)
+
+      assert_equal 1, status
+      assert_includes stderr, "reads facts from"
+      assert_includes File.read(File.join(dir, "Gemfile.lock")), "rails (8.1.3)"
+    end
+  end
+
+  def test_sync_refuses_output_path_targeting_the_config_file
+    with_temp_project do |dir|
+      copy_fixture("full_project", dir)
+      config = File.join(dir, ".versync.yml")
+      File.write(config, YAML.load_file(config).merge("output" => { "json" => ".versync.yml" }).to_yaml)
+      configured_content = File.read(config)
+
+      status, _, stderr = run_cli(["sync"], dir)
+
+      assert_equal 1, status
+      assert_includes stderr, "reads facts from"
+      assert_equal configured_content, File.read(config)
+    end
+  end
+
   def test_check_reports_stale_after_gemfile_lock_changes_post_sync
     with_temp_project do |dir|
       copy_fixture("full_project", dir)

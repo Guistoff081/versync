@@ -29,6 +29,11 @@ module Versync
         image = service["image"]
         raise NotFoundError, "service '#{service_name}' has no 'image' key" unless image
 
+        if image.include?("$")
+          raise NotFoundError,
+                "service '#{service_name}' image '#{image}' uses variable interpolation, which versync cannot resolve"
+        end
+
         tag = extract_tag(image)
         raise NotFoundError, "service '#{service_name}' image '#{image}' has no tag" unless tag
 
@@ -47,13 +52,18 @@ module Versync
 
       # Only treats the last ":" as a tag separator when it appears after the
       # last "/" — otherwise "registry:5000/postgres" would wrongly read
-      # "5000/postgres" as the tag.
+      # "5000/postgres" as the tag. The digest (if any) is stripped first, so
+      # "postgres:16@sha256:..." reads the tag as "16" rather than the last
+      # colon-separated segment of the digest, and "postgres@sha256:..."
+      # (digest-pinned, no tag) correctly reports no tag instead of the
+      # digest hash.
       def extract_tag(image)
-        last_slash = image.rindex("/") || -1
-        last_colon = image.rindex(":")
+        reference, = image.split("@", 2)
+        last_slash = reference.rindex("/") || -1
+        last_colon = reference.rindex(":")
         return nil unless last_colon && last_colon > last_slash
 
-        image[(last_colon + 1)..]
+        reference[(last_colon + 1)..]
       end
     end
   end

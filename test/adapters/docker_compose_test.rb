@@ -45,6 +45,23 @@ module Adapters
       assert_equal({ value: "18", source: "compose.yaml (registry_tag)" }, result)
     end
 
+    def test_raises_not_found_for_digest_only_image_with_no_tag
+      assert_raises(Versync::Adapters::NotFoundError) { @adapter.extract(@dir, { "service" => "digest_only" }) }
+    end
+
+    def test_extracts_tag_ignoring_digest_when_both_present
+      result = @adapter.extract(@dir, { "service" => "tag_and_digest" })
+      assert_equal({ value: "16", source: "compose.yaml (tag_and_digest)" }, result)
+    end
+
+    def test_raises_not_found_for_interpolated_tag_with_default
+      assert_raises(Versync::Adapters::NotFoundError) { @adapter.extract(@dir, { "service" => "interpolated_with_default" }) }
+    end
+
+    def test_raises_not_found_for_interpolated_plain_variable
+      assert_raises(Versync::Adapters::NotFoundError) { @adapter.extract(@dir, { "service" => "interpolated_plain" }) }
+    end
+
     def test_falls_back_to_legacy_docker_compose_yml_name
       with_temp_project do |dir|
         copy_fixture("docker_compose_project_legacy_name", dir)

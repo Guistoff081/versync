@@ -72,6 +72,36 @@ module Versync
       skipped.each { |s| @stderr.puts "warning: fact '#{s.name}' unavailable — #{s.reason}" }
     end
 
+    def resolve_output_path(relative_path)
+      File.expand_path(File.join(project_root, relative_path))
+    end
+
+    # Guards against a `.versync.yml` (however it got there — hand-edited,
+    # merged from a fork, etc.) pointing an output at a path outside the
+    # project, at a fact source file, at the config itself, or at the other
+    # output — any of which would let `sync` clobber a file it shouldn't.
+    def output_path_error(markdown_path, json_path, facts)
+      root_prefix = File.expand_path(project_root) + File::SEPARATOR
+      protected_paths = ([config_path] + facts.map { |f| File.join(project_root, f.source[/\A\S+/]) })
+                         .map { |p| File.expand_path(p) }
+
+      { "markdown output" => markdown_path, "json output" => json_path }.each do |label, path|
+        return "#{label} path escapes the project root: #{path}" unless path.start_with?(root_prefix)
+        return "#{label} path is a symlink, refusing to write: #{path}" if File.symlink?(path)
+        return "#{label} path targets a file versync reads facts from: #{path}" if protected_paths.include?(path)
+      end
+
+      return "markdown and json outputs resolve to the same path: #{markdown_path}" if markdown_path == json_path
+
+      nil
+    end
+
+    def write_atomically(path, content)
+      tmp_path = "#{path}.tmp#{Process.pid}"
+      File.write(tmp_path, content)
+      File.rename(tmp_path, path)
+    end
+
     def run_facts
       config = load_config
       return 1 unless config
@@ -91,14 +121,23 @@ module Versync
       result = collect_facts(config)
       return 1 unless result
 
+      markdown_path = resolve_output_path(config.markdown_output)
+      json_path = resolve_output_path(config.json_output)
+
+      error = output_path_error(markdown_path, json_path, result.facts)
+      if error
+        @stderr.puts error
+        return 1
+      end
+
       generated_at = Time.now
       commit = GitInfo.current_sha(project_root)
 
       markdown = Renderers::Markdown.new(facts: result.facts, generated_at: generated_at, commit: commit).render
       json = Renderers::Json.new(facts: result.facts, generated_at: generated_at, commit: commit).render
 
-      File.write(File.join(project_root, config.markdown_output), markdown)
-      File.write(File.join(project_root, config.json_output), json)
+      write_atomically(markdown_path, markdown)
+      write_atomically(json_path, json)
 
       warn_skipped(result.skipped)
       @stdout.puts "Synced #{result.facts.size} fact(s) to #{config.markdown_output} and #{config.json_output}"

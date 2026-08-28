@@ -47,18 +47,26 @@ module Versync
       text.sub(FOOTER_PATTERN, "")
     end
 
+    # Compares positionally (not by name) so a reordered or duplicated
+    # entry in versync.json — which the config-driven fact order should
+    # never produce from a real `sync` — is still caught as stale rather
+    # than silently collapsed by a name-keyed hash.
     def diff_facts(on_disk_facts, current_facts)
-      on_disk_by_name = on_disk_facts.to_h { |f| [f.name, f] }
-      current_by_name = current_facts.to_h { |f| [f.name, f] }
-      names = (on_disk_by_name.keys | current_by_name.keys)
+      length = [on_disk_facts.length, current_facts.length].max
 
-      names.filter_map do |name|
-        before = on_disk_by_name[name]
-        after = current_by_name[name]
-        next nil if before && after && before.value == after.value && before.source == after.source
+      (0...length).filter_map do |index|
+        before = on_disk_facts[index]
+        after = current_facts[index]
+        next nil if same_fact?(before, after)
 
-        { name: name, before: before&.value, after: after&.value }
+        { name: (after || before).name, before: before&.value, after: after&.value }
       end
+    end
+
+    def same_fact?(before, after)
+      return false if before.nil? || after.nil?
+
+      before.name == after.name && before.value == after.value && before.source == after.source
     end
   end
 end

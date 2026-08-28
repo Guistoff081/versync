@@ -11,3 +11,11 @@ services:
     image: myregistry:5000/postgres
   registry_tag:
     image: myregistry:5000/postgres:18
+  digest_only:
+    image: postgres@sha256:deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef
+  tag_and_digest:
+    image: postgres:16@sha256:deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef
+  interpolated_with_default:
+    image: postgres:${POSTGRES_VERSION:-16}
+  interpolated_plain:
+    image: postgres:$POSTGRES_VERSION

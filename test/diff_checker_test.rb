@@ -80,6 +80,54 @@ class DiffCheckerTest < Minitest::Test
     end
   end
 
+  def test_stale_when_json_facts_are_reordered
+    with_temp_project do |dir|
+      current = [
+        Versync::Fact.new(name: "ruby", value: "4.0.6", source: ".ruby-version"),
+        Versync::Fact.new(name: "rails", value: "8.1.3", source: "Gemfile.lock")
+      ]
+      # Same facts, written in reverse order — a real `sync` would never
+      # produce this, but a hand-edited or merged versync.json might.
+      File.write(File.join(dir, "versync.json"), JSON.generate(
+                                                     "generated_at" => "2026-08-25T12:00:00Z", "commit" => "abc123",
+                                                     "facts" => [
+                                                       { "name" => "rails", "value" => "8.1.3", "source" => "Gemfile.lock" },
+                                                       { "name" => "ruby", "value" => "4.0.6", "source" => ".ruby-version" }
+                                                     ]
+                                                   ))
+      File.write(File.join(dir, "VERSIONS.md"), fresh_markdown(current))
+
+      result = checker(dir).check(current, rendered_markdown: fresh_markdown(current))
+
+      assert result.stale?
+      refute_empty result.fact_diffs
+    end
+  end
+
+  def test_stale_when_json_has_a_duplicate_fact_name_masking_the_real_value
+    with_temp_project do |dir|
+      current = [
+        Versync::Fact.new(name: "rails", value: "8.1.3", source: "Gemfile.lock"),
+        Versync::Fact.new(name: "postgres", value: "18", source: "compose.yaml (db)")
+      ]
+      # Duplicate "rails" entry where the second (wrong) occurrence would
+      # win a name-keyed hash comparison — must still be caught as stale.
+      File.write(File.join(dir, "versync.json"), JSON.generate(
+                                                     "generated_at" => "2026-08-25T12:00:00Z", "commit" => "abc123",
+                                                     "facts" => [
+                                                       { "name" => "rails", "value" => "8.1.3", "source" => "Gemfile.lock" },
+                                                       { "name" => "rails", "value" => "8.1.3", "source" => "Gemfile.lock" }
+                                                     ]
+                                                   ))
+      File.write(File.join(dir, "VERSIONS.md"), fresh_markdown(current))
+
+      result = checker(dir).check(current, rendered_markdown: fresh_markdown(current))
+
+      assert result.stale?
+      refute_empty result.fact_diffs
+    end
+  end
+
   def test_stale_when_versions_md_hand_edited
     with_temp_project do |dir|
       facts = [Versync::Fact.new(name: "ruby", value: "4.0.6", source: ".ruby-version")]
