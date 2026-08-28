@@ -12,7 +12,9 @@ Gem::Specification.new do |spec|
   spec.license = "MIT"
   spec.required_ruby_version = ">= 3.0"
 
-  # TODO before `gem push`: spec.homepage + spec.metadata["source_code_uri"] once the repo has a public remote.
+  spec.homepage = "https://github.com/Guistoff081/versync"
+  spec.metadata["source_code_uri"] = spec.homepage
+  spec.metadata["bug_tracker_uri"] = "#{spec.homepage}/issues"
 
   spec.files = Dir["lib/**/*.rb", "exe/*", "LICENSE.txt", "README.md"]
   spec.bindir = "exe"

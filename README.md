@@ -13,6 +13,23 @@ alike.
 
 ## Install
 
+Not yet published to RubyGems — install straight from this repo:
+
+```bash
+bundle add versync --group development --git https://github.com/Guistoff081/versync.git
+```
+
+Or try it without touching your Gemfile:
+
+```bash
+git clone https://github.com/Guistoff081/versync.git
+cd versync
+bundle install
+bundle exec exe/versync init
+```
+
+Once it's on RubyGems, this becomes the usual:
+
 ```bash
 bundle add versync --group development
 ```
