@@ -304,6 +304,33 @@ not conflict.
   from files to a running environment. Explicitly does **not** mean
   checking for newer upstream releases (Renovate/Dependabot's job,
   intentionally out of scope to avoid a redundant/competing signal).
+- **v0.3 — Multi-source facts + `propagate`/`bump` (complement to
+  Renovate/Dependabot, not a competitor).** Not designed yet — captured
+  from a real Ruby upgrade where one version was pinned in 9 places
+  (`.ruby-version`, `.mise.toml`, `Gemfile`, `Gemfile.lock`
+  `RUBY VERSION`, four Dockerfile `ARG RUBY_VERSION=` lines, a versions
+  doc), plus `BUNDLED WITH`, and one agent-context doc still said an
+  older patch. Ideas to brainstorm, in order:
+  1. *Multi-source facts* — a fact declares every location that pins it
+     (`sources:` list); `check` also fails when the sources disagree
+     with each other, not only when the output is stale. This is the
+     cheapest step and replaces hand-rolled `bin/doc-versions --check`
+     scripts.
+  2. *`propagate`* — when an external updater (Renovate, Dependabot, a
+     human) changes one source, `versync propagate` (or `sync
+     --propagate`) rewrites the remaining sources to match and
+     regenerates the outputs, so the update PR arrives fully
+     consistent. Needs a write side on adapters (surgical replace of
+     the matched value, same safety rules as `sync`'s output guard).
+  3. *`bump <fact> <version>`* — explicit target version only. versync
+     still never queries upstream for the "latest" version; discovery
+     stays with Renovate/Dependabot (keeps the Problem-section thesis).
+  Open questions: whether lockfile sections (`RUBY VERSION`,
+  `BUNDLED WITH`) are rewritten textually or by shelling out to
+  `bundle lock`; how a per-repo Renovate config and versync's
+  `sources:` avoid listing the same files twice. Constraint from the
+  requester: no extra noise or friction in adopting it or running
+  upgrades — near-zero new config, one command, no per-project script.
 - **Later — Node/JS adapter** (`package.json` engines/deps) if there's
   demand to cover Rails+Hotwire+JS stacks with full fidelity.
 - **Later — possible `rails_quality-context` adapter.** If the Rails
